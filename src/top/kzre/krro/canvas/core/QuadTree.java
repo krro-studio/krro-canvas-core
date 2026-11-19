@@ -12,6 +12,7 @@ public final class QuadTree<T> {
 
     private static final int DEFAULT_CAPACITY = 8;
     private static final double DEFAULT_RANGE = 1e9;
+    private static final double EPSILON = 1e-9;
 
     private Rect bounds;
     private final int capacity;
@@ -147,15 +148,49 @@ public final class QuadTree<T> {
 
     // ========== 删除 ==========
 
+    /**
+     * 删除指定点位置的值。
+     * 优先使用空间索引快速删除，失败则回退到暴力删除。
+     */
     public boolean delete(double x, double y, T value) {
-        if (!bounds.contains(x, y)) return false;
+        if (!bounds.contains(x, y)) {
+            // 完全超出根 bounds，直接暴力删除
+            return deleteBruteForce(x, y, value);
+        }
+
+        boolean removed = deleteFast(x, y, value);
+        if (removed) {
+            return true;
+        }
+
+        // fallback：空间定位失败，回退到暴力删除
+        return deleteBruteForce(x, y, value);
+    }
+
+    /**
+     * 快速空间删除（原逻辑修正版）
+     */
+    private boolean deleteFast(double x, double y, T value) {
+        if (!bounds.contains(x, y)) {
+            return false;
+        }
 
         if (divided) {
             boolean removed = false;
-            if (nw != null && nw.delete(x, y, value)) removed = true;
-            else if (ne != null && ne.delete(x, y, value)) removed = true;
-            else if (sw != null && sw.delete(x, y, value)) removed = true;
-            else if (se != null && se.delete(x, y, value)) removed = true;
+
+            if (nw != null && nw.bounds.contains(x, y)) {
+                removed = nw.deleteFast(x, y, value);
+            }
+            if (!removed && ne != null && ne.bounds.contains(x, y)) {
+                removed = ne.deleteFast(x, y, value);
+            }
+            if (!removed && sw != null && sw.bounds.contains(x, y)) {
+                removed = sw.deleteFast(x, y, value);
+            }
+            if (!removed && se != null && se.bounds.contains(x, y)) {
+                removed = se.deleteFast(x, y, value);
+            }
+
             return removed;
         } else {
             for (int i = 0; i < entries.size(); i++) {
@@ -169,6 +204,27 @@ public final class QuadTree<T> {
         }
     }
 
+    /**
+     * 暴力删除兜底：
+     * 匹配 value + 坐标（带浮点 ε）
+     */
+    private boolean deleteBruteForce(double x, double y, T value) {
+        return deleteIf(e ->
+                e.value.equals(value)
+                        && Math.abs(e.x - x) <= EPSILON
+                        && Math.abs(e.y - y) <= EPSILON
+        );
+    }
+
+    /**
+     * 仅按值暴力删除（用于完全 out-of-bounds 的情况）
+     */
+    private boolean deleteBruteForce(T value) {
+        return deleteIf(e -> e.value.equals(value));
+    }
+
+    // ========== 条件删除（原有逻辑，未改动） ==========
+
     public boolean deleteIf(Predicate<Entry<T>> predicate) {
         if (divided) {
             boolean any = false;
@@ -181,7 +237,6 @@ public final class QuadTree<T> {
             return entries.removeIf(predicate);
         }
     }
-
 
     // ========== 查询 ==========
 
@@ -252,10 +307,6 @@ public final class QuadTree<T> {
         }
     }
 
-
-    /**
-     * 查找最近的 k 个点，按距离升序排列，仅包含满足 predicate 的点。
-     */
     public List<NearestResult<T>> nearestK(double x, double y, int k, Predicate<Entry<T>> predicate) {
         if (k <= 0) return Collections.emptyList();
         PriorityQueue<NearestResult<T>> heap = new PriorityQueue<>(
@@ -299,7 +350,6 @@ public final class QuadTree<T> {
         }
     }
 
-    // 无 predicate 的重载
     public List<NearestResult<T>> nearestK(double x, double y, int k) {
         return nearestK(x, y, k, e -> true);
     }
@@ -322,7 +372,6 @@ public final class QuadTree<T> {
             return;
         }
 
-        // 按子节点到查询点的最小距离排序
         QuadTree<T>[] children = orderChildren(x, y);
         for (QuadTree<T> child : children) {
             if (child == null) continue;
@@ -334,8 +383,6 @@ public final class QuadTree<T> {
             child.nearestK(x, y, k, heap);
         }
     }
-
-
 
     // ========== 辅助 ==========
 
