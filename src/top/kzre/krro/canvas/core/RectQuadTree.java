@@ -12,6 +12,7 @@ public final class RectQuadTree<T> {
 
     private static final int DEFAULT_CAPACITY = 8;
     private static final double DEFAULT_RANGE = 1e9;
+    private static final double EPSILON = 1e-9;
 
     private Rect bounds;
     private final int capacity;
@@ -46,9 +47,6 @@ public final class RectQuadTree<T> {
 
     // ========== 插入 ==========
 
-    /**
-     * 插入一个矩形及其关联值。
-     */
     public void insert(Rect rect, T value) {
         if (!bounds.intersects(rect)) {
             if (autoExpand) expandBounds(rect);
@@ -66,7 +64,6 @@ public final class RectQuadTree<T> {
             subdivide();
         }
 
-        // 尝试分配给子节点（根据矩形中心）
         double cx = rect.midX(), cy = rect.midY();
         if (nw.bounds.contains(cx, cy)) {
             nw.insertInternal(rect, value);
@@ -139,9 +136,6 @@ public final class RectQuadTree<T> {
 
     // ========== 查询 ==========
 
-    /**
-     * 查询与给定矩形相交的所有条目。
-     */
     public void query(Rect rect, Consumer<Entry<T>> consumer) {
         if (!bounds.intersects(rect)) return;
 
@@ -164,9 +158,6 @@ public final class RectQuadTree<T> {
         return result;
     }
 
-    /**
-     * 查询点附近（扩展阈值）的矩形条目。
-     */
     public List<Entry<T>> queryPoint(double x, double y, double threshold) {
         Rect rect = new Rect(x - threshold, y - threshold, x + threshold, y + threshold);
         List<Entry<T>> result = new ArrayList<>();
@@ -174,12 +165,9 @@ public final class RectQuadTree<T> {
         return result;
     }
 
-    /**
-     * 查找最近的 k 个矩形条目（按中心距离排序）。
-     */
     public List<NearestResult<T>> nearestK(double x, double y, int k, Predicate<Entry<T>> predicate) {
         List<Entry<T>> candidates = new ArrayList<>();
-        Rect queryRect = new Rect(x - 1000, y - 1000, x + 1000, y + 1000); // 大范围初始
+        Rect queryRect = new Rect(x - 1000, y - 1000, x + 1000, y + 1000);
         query(queryRect, e -> {
             if (predicate.test(e)) candidates.add(e);
         });
@@ -212,18 +200,69 @@ public final class RectQuadTree<T> {
 
     // ========== 删除 ==========
 
+    /**
+     * 删除指定矩形和值的条目。
+     * 优先按空间索引删除，失败回退到暴力删除。
+     */
     public boolean delete(Rect rect, T value) {
+        boolean removed = deleteFast(rect, value);
+        if (removed) {
+            return true;
+        }
+        // fallback：暴力遍历删除
+        return deleteBruteForce(rect, value);
+    }
+
+    /**
+     * 快速空间删除
+     */
+    private boolean deleteFast(Rect rect, T value) {
+        if (!bounds.intersects(rect)) {
+            return false;
+        }
+
         if (divided) {
             boolean removed = false;
-            if (nw != null) removed |= nw.delete(rect, value);
-            if (ne != null) removed |= ne.delete(rect, value);
-            if (sw != null) removed |= sw.delete(rect, value);
-            if (se != null) removed |= se.delete(rect, value);
+            if (nw != null && nw.bounds.intersects(rect)) {
+                removed |= nw.deleteFast(rect, value);
+            }
+            if (ne != null && ne.bounds.intersects(rect)) {
+                removed |= ne.deleteFast(rect, value);
+            }
+            if (sw != null && sw.bounds.intersects(rect)) {
+                removed |= sw.deleteFast(rect, value);
+            }
+            if (se != null && se.bounds.intersects(rect)) {
+                removed |= se.deleteFast(rect, value);
+            }
             return removed;
         } else {
-            return entries.removeIf(e -> e.rect.equals(rect) && e.value.equals(value));
+            return entries.removeIf(e ->
+                    e.value.equals(value) && rectEquals(e.rect, rect)
+            );
         }
     }
+
+    /**
+     * 暴力删除兜底（精确匹配 rect + value）
+     */
+    private boolean deleteBruteForce(Rect rect, T value) {
+        return deleteIf(e ->
+                e.value.equals(value) && rectEquals(e.rect, rect)
+        );
+    }
+
+    /**
+     * 矩形相等比较（带浮点 ε）
+     */
+    private boolean rectEquals(Rect a, Rect b) {
+        return Math.abs(a.xMin - b.xMin) <= EPSILON
+                && Math.abs(a.yMin - b.yMin) <= EPSILON
+                && Math.abs(a.xMax - b.xMax) <= EPSILON
+                && Math.abs(a.yMax - b.yMax) <= EPSILON;
+    }
+
+    // ========== 条件删除 ==========
 
     public boolean deleteIf(Predicate<Entry<T>> predicate) {
         if (divided) {
