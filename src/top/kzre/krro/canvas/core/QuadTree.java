@@ -95,19 +95,19 @@ public final class QuadTree<T> {
         double midX = bounds.midX();
         double midY = bounds.midY();
 
-        nw = new QuadTree<>(new Rect(bounds.xMin, bounds.yMin, midX, midY), capacity, false);
-        ne = new QuadTree<>(new Rect(midX, bounds.yMin, bounds.xMax, midY), capacity, false);
-        sw = new QuadTree<>(new Rect(bounds.xMin, midY, midX, bounds.yMax), capacity, false);
-        se = new QuadTree<>(new Rect(midX, midY, bounds.xMax, bounds.yMax), capacity, false);
+        nw = new QuadTree<>(new Rect(bounds.minX, bounds.minY, midX, midY), capacity, false);
+        ne = new QuadTree<>(new Rect(midX, bounds.minY, bounds.maxX, midY), capacity, false);
+        sw = new QuadTree<>(new Rect(bounds.minX, midY, midX, bounds.maxY), capacity, false);
+        se = new QuadTree<>(new Rect(midX, midY, bounds.maxX, bounds.maxY), capacity, false);
 
         divided = true;
     }
 
     private void expandBounds(double x, double y) {
-        double newMinX = Math.min(bounds.xMin, x);
-        double newMinY = Math.min(bounds.yMin, y);
-        double newMaxX = Math.max(bounds.xMax, x);
-        double newMaxY = Math.max(bounds.yMax, y);
+        double newMinX = Math.min(bounds.minX, x);
+        double newMinY = Math.min(bounds.minY, y);
+        double newMaxX = Math.max(bounds.maxX, x);
+        double newMaxY = Math.max(bounds.maxY, y);
 
         double marginX = (newMaxX - newMinX) * 0.1;
         double marginY = (newMaxY - newMinY) * 0.1;

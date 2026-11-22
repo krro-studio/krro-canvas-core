@@ -1,45 +1,45 @@
 package top.kzre.krro.canvas.core;
 
 public final class Rect {
-    public final double xMin, yMin, xMax, yMax;
+    public final double minX, minY, maxX, maxY;
 
-    public Rect(double xMin, double yMin, double xMax, double yMax) {
-        if (xMin > xMax || yMin > yMax)
+    public Rect(double minX, double minY, double maxX, double maxY) {
+        if (minX > maxX || minY > maxY)
             throw new IllegalArgumentException("Invalid rect bounds");
-        this.xMin = xMin;
-        this.yMin = yMin;
-        this.xMax = xMax;
-        this.yMax = yMax;
+        this.minX = minX;
+        this.minY = minY;
+        this.maxX = maxX;
+        this.maxY = maxY;
     }
 
     public boolean contains(double x, double y) {
-        return x >= xMin && x <= xMax && y >= yMin && y <= yMax;
+        return x >= minX && x <= maxX && y >= minY && y <= maxY;
     }
 
     public boolean intersects(Rect other) {
-        return !(other.xMin > xMax || other.xMax < xMin ||
-                other.yMin > yMax || other.yMax < yMin);
+        return !(other.minX > maxX || other.maxX < minX ||
+                other.minY > maxY || other.maxY < minY);
     }
 
     public double midX() {
-        return (xMin + xMax) * 0.5;
+        return (minX + maxX) * 0.5;
     }
 
     public double midY() {
-        return (yMin + yMax) * 0.5;
+        return (minY + maxY) * 0.5;
     }
 
     public double distToPointSq(double x, double y) {
         double dx = 0, dy = 0;
-        if (x < xMin) dx = xMin - x;
-        else if (x > xMax) dx = x - xMax;
-        if (y < yMin) dy = yMin - y;
-        else if (y > yMax) dy = y - yMax;
+        if (x < minX) dx = minX - x;
+        else if (x > maxX) dx = x - maxX;
+        if (y < minY) dy = minY - y;
+        else if (y > maxY) dy = y - maxY;
         return dx * dx + dy * dy;
     }
 
     @Override
     public String toString() {
-        return String.format("Rect[%.2f,%.2f,%.2f,%.2f]", xMin, yMin, xMax, yMax);
+        return String.format("Rect[%.2f,%.2f,%.2f,%.2f]", minX, minY, maxX, maxY);
     }
 }

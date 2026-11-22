@@ -1,6 +1,10 @@
 package top.kzre.krro.canvas.core.layer;
 
+import top.kzre.krro.canvas.core.Rect;
 import top.kzre.krro.util.math.KMath;
+import top.kzre.krro.util.pool.FloatsHolder;
+import top.kzre.krro.util.pool.FloatsPool;
+import top.kzre.krro.util.pool.PoolManagers;
 import top.kzre.krro.util.tile.TiledCanvas;
 
 import java.util.Collections;
@@ -8,17 +12,54 @@ import java.util.HashSet;
 import java.util.Set;
 
 public final class LayerUtils {
-
+    private static final FloatsPool F2;
+    static {
+        FloatsHolder holder = PoolManagers.floats().getHolder();
+        F2 = holder.getPool(2);
+    }
     private static final float EPSILON = 1e-6f;
 
     private LayerUtils() {}
 
+    public static Rect transformAABB(
+            float minX, float minY,
+            float maxX, float maxY,
+            float[] mat2d) {
+        float[] p0 = F2.acquire();
+        float[] p1 = F2.acquire();
+        float[] p2 = F2.acquire();
+        float[] p3 = F2.acquire();
+        Rect result;
+        try {
+            // 变换 4 个角
+            KMath.mat2dTransformPoint(mat2d, minX, minY, p0);       // 左上
+            KMath.mat2dTransformPoint(mat2d, maxX, minY, p1);       // 右上
+            KMath.mat2dTransformPoint(mat2d, maxX, maxY, p2);       // 右下
+            KMath.mat2dTransformPoint(mat2d, minX, maxY, p3);       // 左下
+
+            // 取极值
+            float outMinX = Math.min(Math.min(p0[0], p1[0]), Math.min(p2[0], p3[0]));
+            float outMinY = Math.min(Math.min(p0[1], p1[1]), Math.min(p2[1], p3[1]));
+            float outMaxX = Math.max(Math.max(p0[0], p1[0]), Math.max(p2[0], p3[0]));
+            float outMaxY = Math.max(Math.max(p0[1], p1[1]), Math.max(p2[1], p3[1]));
+
+            result = new Rect(outMinX, outMinY, outMaxX, outMaxY);
+        } finally {
+            F2.release(p0);
+            F2.release(p1);
+            F2.release(p2);
+            F2.release(p3);
+        }
+        return result;
+
+    }
+
     public static Set<Long> canvasTiles(int tileSize, int canvasW, int canvasH) {
         Set<Long> tiles = new HashSet<>();
-        int minTx = TiledCanvas.tileX(0, tileSize);
-        int maxTx = TiledCanvas.tileX(canvasW - 1, tileSize);
-        int minTy = TiledCanvas.tileY(0, tileSize);
-        int maxTy = TiledCanvas.tileY(canvasH - 1, tileSize);
+        int minTx = TiledCanvas.tile(0, tileSize);
+        int maxTx = TiledCanvas.tile(canvasW - 1, tileSize);
+        int minTy = TiledCanvas.tile(0, tileSize);
+        int maxTy = TiledCanvas.tile(canvasH - 1, tileSize);
         for (int ty = minTy; ty <= maxTy; ty++) {
             for (int tx = minTx; tx <= maxTx; tx++) {
                 tiles.add(TiledCanvas.pack(tx, ty));
@@ -42,7 +83,7 @@ public final class LayerUtils {
         int maxTy = (int) Math.floor((maxY + eps) / tileSize);
         for (int ty = minTy; ty <= maxTy; ty++) {
             for (int tx = minTx; tx <= maxTx; tx++) {
-                result.add(TiledCanvas.pack(tx, ty));
+                result.add(TiledCanvas.t(tx, ty));
             }
         }
         return result;

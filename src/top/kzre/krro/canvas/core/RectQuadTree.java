@@ -83,10 +83,10 @@ public final class RectQuadTree<T> {
         double midX = bounds.midX();
         double midY = bounds.midY();
 
-        nw = new RectQuadTree<>(new Rect(bounds.xMin, bounds.yMin, midX, midY), capacity, false);
-        ne = new RectQuadTree<>(new Rect(midX, bounds.yMin, bounds.xMax, midY), capacity, false);
-        sw = new RectQuadTree<>(new Rect(bounds.xMin, midY, midX, bounds.yMax), capacity, false);
-        se = new RectQuadTree<>(new Rect(midX, midY, bounds.xMax, bounds.yMax), capacity, false);
+        nw = new RectQuadTree<>(new Rect(bounds.minX, bounds.minY, midX, midY), capacity, false);
+        ne = new RectQuadTree<>(new Rect(midX, bounds.minY, bounds.maxX, midY), capacity, false);
+        sw = new RectQuadTree<>(new Rect(bounds.minX, midY, midX, bounds.maxY), capacity, false);
+        se = new RectQuadTree<>(new Rect(midX, midY, bounds.maxX, bounds.maxY), capacity, false);
 
         divided = true;
     }
@@ -94,10 +94,10 @@ public final class RectQuadTree<T> {
     // ========== 扩展边界 ==========
 
     private void expandBounds(Rect rect) {
-        double newMinX = Math.min(bounds.xMin, rect.xMin);
-        double newMinY = Math.min(bounds.yMin, rect.yMin);
-        double newMaxX = Math.max(bounds.xMax, rect.xMax);
-        double newMaxY = Math.max(bounds.yMax, rect.yMax);
+        double newMinX = Math.min(bounds.minX, rect.minX);
+        double newMinY = Math.min(bounds.minY, rect.minY);
+        double newMaxX = Math.max(bounds.maxX, rect.maxX);
+        double newMaxY = Math.max(bounds.maxY, rect.maxY);
 
         double marginX = (newMaxX - newMinX) * 0.1;
         double marginY = (newMaxY - newMinY) * 0.1;
@@ -256,10 +256,10 @@ public final class RectQuadTree<T> {
      * 矩形相等比较（带浮点 ε）
      */
     private boolean rectEquals(Rect a, Rect b) {
-        return Math.abs(a.xMin - b.xMin) <= EPSILON
-                && Math.abs(a.yMin - b.yMin) <= EPSILON
-                && Math.abs(a.xMax - b.xMax) <= EPSILON
-                && Math.abs(a.yMax - b.yMax) <= EPSILON;
+        return Math.abs(a.minX - b.minX) <= EPSILON
+                && Math.abs(a.minY - b.minY) <= EPSILON
+                && Math.abs(a.maxX - b.maxX) <= EPSILON
+                && Math.abs(a.maxY - b.maxY) <= EPSILON;
     }
 
     // ========== 条件删除 ==========
