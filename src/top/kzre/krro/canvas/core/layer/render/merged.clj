@@ -5,7 +5,7 @@
 
 (defonce ^:private default-layer-attrs*
          {:opacity 1.0
-          :visible true
+          :visible? true
           :backend :default
           :blend-mode :normal
           :transform util/identity-matrix})

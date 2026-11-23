@@ -49,3 +49,27 @@
 (s/def ::layer
   (s/merge ::layer-common
            (s/multi-spec layer-spec :type)))
+
+(defn layer-id
+  [layer]
+  (:id layer))
+
+(defn layer-type
+  "返回图层是否可见。"
+  [layer]
+  (:type layer))
+
+(defn opacity
+  "返回图层的不透明度。"
+  [layer]
+  (:opacity layer 1.0))
+
+(defn blend-mode
+  "返回图层的混合模式, 默认是 normal 合成"
+  [layer]
+  (:blend-mode layer :normal))
+
+(defn visible?
+  "返回图层是否可见。"
+  [layer]
+  (:visible? layer true))

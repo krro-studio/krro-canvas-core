@@ -21,7 +21,7 @@
    [top.kzre.krro.canvas.core.layer.render.merged :as merged]
    [top.kzre.krro.core.util.promise :as promise])
   (:import
-    (java.util Set)
+    (java.util Collection Set)
     (top.kzre.krro.util.tile TiledCanvas)))
 
 
@@ -125,7 +125,7 @@
               (.clear canvas)
               (if e
                 (throw e)                                   ;; 失败：清理后重抛
-                (.keepTiles ^TiledCanvas (:canvas layer) dirty-tiles)))))  ; 成功：返回结果画布
+                (.keepTiles ^TiledCanvas (:canvas layer) ^Set dirty-tiles)))))  ; 成功：返回结果画布
       (catch Throwable e
         ;; batch/render 同步抛（罕见）时，初始画布也要释放
         (.clear canvas)

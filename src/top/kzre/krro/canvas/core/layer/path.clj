@@ -388,3 +388,21 @@
                               (conj (butlast new-path) (dec new-idx))
                               new-path)]
       (insert-layer adjusted-new-path removed temp-layers))))
+
+
+(defn update-layer
+  "对指定路径处的图层应用更新函数 f，返回新的图层列表。
+   f 接收当前图层，返回更新后的图层。
+   路径无效时返回原 layers。"
+  [layers path f]
+  (when (seq path)
+    (let [idx (last path)
+          parent-path (butlast path)]
+      (if (seq parent-path)
+        ;; 有父路径：找到父组，递归更新其内部
+        (let [parent-idx (first parent-path)
+              parent (nth layers parent-idx)
+              new-parent (assoc parent :layers (update-layer (:layers parent) (rest path) f))]
+          (assoc layers parent-idx new-parent))
+        ;; 根级更新
+        (assoc layers idx (f (nth layers idx)))))))

@@ -3,17 +3,16 @@
    内部使用 :batch-item 与 :merged 两种中间表示，
    批次渲染由 flush-batch! 多方法根据 :backend 分派。"
   (:require
-   [taoensso.tufte :refer [p profile]]
-   [top.kzre.krro.canvas.core.layer.group :as group]
-   [top.kzre.krro.canvas.core.layer.render.core :as render]
-   [top.kzre.krro.canvas.core.layer.spec]
-   [top.kzre.krro.canvas.core.layer.transform :as trans]
-   [top.kzre.krro.canvas.core.layer.util :as util]
-   [top.kzre.krro.core.util.promise :as promise])
+    [taoensso.tufte :refer [p profile]]
+    [top.kzre.krro.canvas.core.layer.group :as group]
+    [top.kzre.krro.canvas.core.layer.render.core :as render]
+    [top.kzre.krro.canvas.core.layer.spec]
+    [top.kzre.krro.canvas.core.layer.transform :as trans]
+    [top.kzre.krro.canvas.core.layer.util :as util]
+    [top.kzre.krro.core.util.promise :as promise]
+    [top.kzre.krro.core.util.re-export :refer [re-export]])
   (:import
-   [java.util Set]
-   (top.kzre.krro.canvas.core.layer LayerUtils)
-   (top.kzre.krro.util.tile TiledCanvas)))
+    (top.kzre.krro.canvas.core.layer LayerUtils)))
 
 (def parent-inverse-transform util/parent-inverse-transform)
 (def compose-inverse-transform util/compose-inverse-transform)
@@ -26,6 +25,14 @@
 (def find-layer-by-path util/find-layer-by-path)
 (def move-layer util/move-layer)
 (def parent-container util/parent-container)
+
+(re-export
+  [top.kzre.krro.canvas.core.layer.util
+   :refer [get-layer ]])
+
+(re-export
+  [top.kzre.krro.canvas.core.layer.spec
+   :refer [layer-id layer-type opacity blend-mode visible?]])
 
 (defn ^:deprecated render-layers!
   "渲染图层树到目标画布（预乘视口变换）。

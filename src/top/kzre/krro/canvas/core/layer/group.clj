@@ -1,8 +1,9 @@
 (ns top.kzre.krro.canvas.core.layer.group
   "图层组操作：创建、修改子图层，封装内部向量。"
+  (:require
+   [top.kzre.krro.canvas.core.layer.spec :as layer.spec])
   (:import
-    (java.util UUID)
-    (top.kzre.krro.util.math KMath)))
+   (java.util UUID)))
 
 (defn make-layer-group
   "创建一个图层组。ID 默认为 UUID 字符串。"
@@ -77,9 +78,9 @@
 (defn pass-through
   "穿透单图层，返回新图层"
   [layer]
-  (when (:visible layer true)
-    (if (group? layer)
-      (if (pass-through? layer)
-        (pass-through (:layers layer))
-        (update layer :layers pass-through))
-      layer)))
+  ;; 穿透与否与是否可见没关系
+  (if (group? layer)
+    (if (pass-through? layer)
+      (pass-through (:layers layer))
+      (update layer :layers pass-through))
+    layer))
