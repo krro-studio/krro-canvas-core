@@ -4,7 +4,8 @@
     [top.kzre.krro.canvas.core.layer.core :as l]
     [top.kzre.krro.canvas.core.layer.group :as group]
     [top.kzre.krro.canvas.core.layer.merged :as merged]
-    [top.kzre.krro.canvas.core.layer.render :as render]))
+    [top.kzre.krro.canvas.core.layer.render :as render]
+    [top.kzre.krro.core.util.re-export :refer [re-export]]))
 
 ;; ── 图层操作 ────────────────────────────────────
 (def ^:dynamic *merge-layer!* render/*merge-layer*)
@@ -16,8 +17,9 @@
 
 
 ;; ── 图层组操作（不变） ─────────────────────────────
-(def group? group/group?)
-(def make-layer-group group/make-layer-group)
+(re-export
+  [top.kzre.krro.canvas.core.layer.group
+   :refer [group? make-layer-group]])
 (def add-layer-to-group group/add-layer)
 (def add-layer-to-group-at group/add-layer-at)
 (def remove-layer-from-group group/remove-layer)

@@ -158,7 +158,7 @@
   [path]
   (when (seq path) (last path)))
 
-(defn path<?
+(defn path<
   "按 DFS 前序遍历，a 是否严格在 b 之前。"
   [a b]
   (cond
@@ -233,6 +233,12 @@
     (when (seq (:layers parent-layer))
       (conj parent-path (dec (count (:layers parent-layer)))))))
 
+(defn above-last-child-path
+  "父路径的最后一个子路径之后的虚拟路径"
+  [layers parent-path]
+  (let [parent-layer (get-layer layers parent-path)]
+    (conj parent-path (count (:layers parent-layer)))))
+
 ;; ═══════════════════════════════════════════════
 ;; 第二段：path → path（导航）
 ;; ═══════════════════════════════════════════════
@@ -242,6 +248,11 @@
   [layers]
   (when (seq layers)
     [(dec (count layers))]))
+
+(defn above-top-path
+  "最顶层图层之上的虚拟路径"
+  [layers]
+  [(count layers)])
 
 (defn bottom-path
   "底层（索引 0）路径。列表为空返回 nil。"
@@ -257,6 +268,13 @@
         next-idx (inc idx)]
     (when (< next-idx (count siblings))
       (conj (parent path) next-idx))))
+
+(defn unchecked-above-sibling-path
+  "返回在 layer-id 上方插入新图层时应使用的路径。"
+  [path]
+  (let [parent (butlast path)
+        idx (last path)]
+    (conj (vec parent) (inc idx))))
 
 (defn above-sibling-paths
   "同一父容器中，当前路径上方（索引更大）的所有兄弟路径。
@@ -345,7 +363,8 @@
         ;; 有父路径：找到父组，递归更新其内部
         (let [parent-idx (first parent-path)
               parent (nth layers parent-idx)
-              new-parent (assoc parent :layers (insert-layer (rest path) layer (:layers parent)))]
+              new-parent (update parent :layers
+                                 insert-layer (rest path) layer)]
           (assoc layers parent-idx new-parent))
         ;; 直接根级插入
         (vec (concat (subvec layers 0 idx) [layer] (subvec layers idx)))))
@@ -406,3 +425,18 @@
           (assoc layers parent-idx new-parent))
         ;; 根级更新
         (assoc layers idx (f (nth layers idx)))))))
+
+(defn sort-paths
+  "对 paths 按 DFS 前序排序。返回排序后的 paths。"
+  [paths]
+  (vec (sort path< paths)))
+
+
+(defn sort-by-path
+  "paths 和 attachments 是一一对应的扁平序列。
+   按 paths 的 DFS 前序排序，attachments 跟随移动。
+   返回 [sorted-paths sorted-attachments]。"
+  [paths attachments]
+  (let [pairs   (map vector paths attachments)
+        sorted  (sort-by first path< pairs)]
+    [(mapv first sorted) (mapv second sorted)]))
