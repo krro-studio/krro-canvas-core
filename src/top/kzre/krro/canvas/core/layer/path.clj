@@ -1,6 +1,6 @@
 (ns top.kzre.krro.canvas.core.layer.path
   "图层路径：图层或图层组在图层树中的位置标识。
-   基础模块，被其他模块依赖，但不依赖别人。
+   薄包装层，委托 top.kzre.krro.core.util.tree-path 完成通用路径操作。
 
    路径是索引向量，如 [2 0] 表示根列表第 2 个图层的第 0 个子图层。
    空向量 [] 表示根容器本身。
@@ -52,124 +52,55 @@
    ═══════════════════════════════════════════════
 
    本命名空间：
-     ✓ 路径构造、变换、比较
-     ✓ 按 id 查路径、按路径查图层
-     ✓ 导航（父、子、兄弟、遍历）
+     ✓ 路径构造、变换、比较（委托 tree-path）
+     ✓ 按 id 查路径、按路径查图层（包装 :layers children-fn）
+     ✓ 导航（父、子、兄弟、遍历）（委托 + 包装）
+     ✓ 图层树修改（包装 tree-path 的 insert/remove/move/update-node）
 
    不属于本命名空间：
-     ✗ 图层数据更新——由外部组合 (update-in layers ...)
+     ✗ 通用树路径逻辑——委托 top.kzre.krro.core.util.tree-path
      ✗ 图层属性的读取/修改——属于图层操作命名空间
      ✗ 图层的语义判断（可见性、类型）——属于图层定义"
 
-  )
+  (:require [top.kzre.krro.core.util.tree-path :as tp]))
 
 ;; ═══════════════════════════════════════════════
-;; 路径构造（纯路径操作）
+;; children-fn / assoc-children-fn
 ;; ═══════════════════════════════════════════════
 
-(defn root
-  "从索引构造根级路径。"
-  [index]
-  [index])
+(def ^:private layers-children
+  "图层树的 children-fn，从节点取 :layers。"
+  :layers)
 
-(defn child
-  "在父路径后追加索引，形成子路径。"
-  [path index]
-  (conj path index))
-
-(defn append
-  "在路径后追加一个索引。等于 child。"
-  [path idx]
-  (conj path idx))
-
-(defn parent
-  "获取路径的父路径。根级路径返回空向量。"
-  [path]
-  (if (<= (count path) 1)
-    []
-    (vec (butlast path))))
-
-(defn with-index
-  "替换路径的最后一段索引。"
-  [path new-idx]
-  (conj (parent path) new-idx))
-
-(defn truncate
-  "截断到指定深度。"
-  [path n]
-  (subvec path 0 (min n (count path))))
-
-(defn path?
-  "判断是否为合法路径（非负整数向量，空向量表示根）。"
-  [x]
-  (and (vector? x)
-       (every? #(and (integer? %) (not (neg? %))) x)))
-
-(defn root?
-  "路径是否是根级路径（深度 ≤ 1）。
-   注意：[0] 也是根级路径。"
-  [path]
-  (empty? (parent path)))
+(def ^:private assoc-layers
+  "将子图层列表写回节点。"
+  (fn [node children] (assoc node :layers children)))
 
 ;; ═══════════════════════════════════════════════
-;; 层级关系（纯路径操作）
+;; 路径构造（委托 tree-path）
 ;; ═══════════════════════════════════════════════
 
-(defn ancestor?
-  "a 是否是 b 的祖先路径。
-   [1] 是 [1 2] [1 2 3] 的祖先。
-   相等不算祖先。"
-  [a b]
-  (and (< (count a) (count b))
-       (= a (subvec b 0 (count a)))))
+(def ^:deprecated root tp/root)
+(def ^:deprecated child tp/child)
+(def ^:deprecated append tp/append)
+(def ^:deprecated parent tp/parent)
+(def ^:deprecated with-index tp/with-index)
+(def ^:deprecated truncate tp/truncate)
+(def ^:deprecated path? tp/path?)
+(def ^:deprecated root? tp/root?)
+(def ^:deprecated depth tp/depth)
+(def ^:deprecated index-in-parent tp/index-in-parent)
 
-(defn descendant?
-  "a 是否是 b 的后代路径。"
-  [a b]
-  (ancestor? b a))
+;; ═══════════════════════════════════════════════
+;; 层级关系（委托 tree-path）
+;; ═══════════════════════════════════════════════
 
-(defn sibling?
-  "同一父下的不同路径。"
-  [a b]
-  (and (not= a b)
-       (= (parent a) (parent b))))
-
-(defn within?
-  "a 是否在 b 的子树内（含 b 自身）。"
-  [a b]
-  (or (= a b) (ancestor? b a)))
-
-(defn common-ancestor
-  "两个路径的最深公共祖先路径。"
-  [a b]
-  (let [n (min (count a) (count b))]
-    (loop [i 0]
-      (if (and (< i n) (= (nth a i) (nth b i)))
-        (recur (inc i))
-        (subvec a 0 i)))))
-
-(defn depth
-  "路径深度。根级 = 1，空路径 = 0。"
-  [path]
-  (count path))
-
-(defn index-in-parent
-  "当前路径在父容器中的索引。空路径返回 nil。"
-  [path]
-  (when (seq path) (last path)))
-
-(defn path<
-  "按 DFS 前序遍历，a 是否严格在 b 之前。"
-  [a b]
-  (cond
-    (= a b)         false
-    (ancestor? a b) true
-    (ancestor? b a) false
-    :else
-    (let [ca (common-ancestor a b)
-          ia (nth a (count ca))
-          ib (nth b (count ca))]
-      (< ia ib))))
+(def ^:deprecated ancestor? tp/ancestor?)
+(def ^:deprecated descendant? tp/descendant?)
+(def ^:deprecated sibling? tp/sibling?)
+(def ^:deprecated within? tp/within?)
+(def ^:deprecated common-ancestor tp/common-ancestor)
+(def ^:deprecated path< tp/path<)
 
 ;; ═══════════════════════════════════════════════
 ;; 第一段：id ↔ path
@@ -179,13 +110,7 @@
   "查找指定 layer-id 的索引路径。未找到返回 nil。
    返回向量（不是 seq）。"
   [layers layer-id]
-  (some (fn [[idx layer]]
-          (if (= (:id layer) layer-id)
-            [idx]
-            (when (map? layer)
-              (when-let [sub (get-path (:layers layer) layer-id)]
-                (into [idx] sub)))))
-        (map-indexed vector layers)))
+  (tp/get-path-by-id layers layer-id layers-children))
 
 ;; ═══════════════════════════════════════════════
 ;; 第二段：path → layer
@@ -194,249 +119,137 @@
 (defn get-layer
   "按索引路径查找图层。路径无效返回 nil。"
   [layers path]
-  (reduce (fn [node idx]
-            (let [children (if (map? node) (:layers node) node)]
-              (nth children idx nil)))
-          layers
-          path))
+  (tp/get-node layers path layers-children))
 
 (defn get-siblings
   "路径所指向的兄弟图层，包括自己。
    空路径返回 layers 本身。"
   [layers path]
-  (if (seq path)
-    (let [pp           (parent path)
-          parent-layer (when (seq pp)
-                         (get-layer layers pp))]
-      (if parent-layer
-        (:layers parent-layer)
-        layers))
-    layers))
+  (tp/children layers path layers-children))
 
 (defn child-paths
   "父路径的所有子路径——升序。"
   [layers parent-path]
-  (let [parent-layer (get-layer layers parent-path)]
-    (mapv #(conj parent-path %) (range (count (:layers parent-layer))))))
+  (tp/child-paths layers parent-path layers-children))
 
 (defn first-child-path
   "父路径的第一个子路径。无子返回 nil。"
   [layers parent-path]
-  (let [parent-layer (get-layer layers parent-path)]
-    (when (seq (:layers parent-layer))
-      (conj parent-path 0))))
+  (tp/first-child-path layers parent-path layers-children))
 
 (defn last-child-path
   "父路径的最后一个子路径。无子返回 nil。"
   [layers parent-path]
-  (let [parent-layer (get-layer layers parent-path)]
-    (when (seq (:layers parent-layer))
-      (conj parent-path (dec (count (:layers parent-layer)))))))
+  (tp/last-child-path layers parent-path layers-children))
 
 (defn above-last-child-path
-  "父路径的最后一个子路径之后的虚拟路径"
+  "父路径的最后一个子路径之后的虚拟路径。"
   [layers parent-path]
-  (let [parent-layer (get-layer layers parent-path)]
-    (conj parent-path (count (:layers parent-layer)))))
+  (tp/above-last-child-path layers parent-path layers-children))
 
 ;; ═══════════════════════════════════════════════
 ;; 第二段：path → path（导航）
 ;; ═══════════════════════════════════════════════
 
-(defn top-path
+(defn ^:deprecated top-path
   "顶层（末尾）路径。列表为空返回 nil。"
   [layers]
-  (when (seq layers)
-    [(dec (count layers))]))
+  (tp/top-path layers))
 
-(defn above-top-path
-  "最顶层图层之上的虚拟路径"
+(defn ^:deprecated above-top-path
+  "最顶层图层之上的虚拟路径。"
   [layers]
-  [(count layers)])
+  (tp/above-top-path layers))
 
-(defn bottom-path
+(defn ^:deprecated bottom-path
   "底层（索引 0）路径。列表为空返回 nil。"
   [layers]
-  (when (seq layers)
-    [0]))
+  (tp/bottom-path layers))
 
 (defn above-sibling-path
   "同一父容器中当前路径的下一个兄弟路径。已是最后一个返回 nil。"
   [layers path]
-  (let [siblings (get-siblings layers path)
-        idx      (last path)
-        next-idx (inc idx)]
-    (when (< next-idx (count siblings))
-      (conj (parent path) next-idx))))
+  (tp/above-sibling-path layers path layers-children))
 
-(defn unchecked-above-sibling-path
+(defn ^:deprecated unchecked-above-sibling-path
   "返回在 layer-id 上方插入新图层时应使用的路径。"
   [path]
-  (let [parent (butlast path)
-        idx (last path)]
-    (conj (vec parent) (inc idx))))
+  (tp/unchecked-above-sibling-path path))
 
 (defn above-sibling-paths
-  "同一父容器中，当前路径上方（索引更大）的所有兄弟路径。
-   按从下到上的顺序返回（索引升序）。
-   空路径或当前已是最后一个时返回 []。
-
-   用于分段——取 [current, top] 中的上方部分。"
+  "同一父容器中，当前路径上方（索引更大）的所有兄弟路径。索引升序。"
   [layers path]
-  (if (empty? path)
-    []
-    (let [siblings (get-siblings layers path)
-          n        (count siblings)
-          idx      (last path)
-          parent-p (parent path)]
-      (mapv #(conj parent-p %) (range (inc idx) n)))))
+  (tp/above-sibling-paths layers path layers-children))
 
 (defn below-sibling-path
   "同一父容器中当前路径的前一个兄弟路径。已是第一个返回 nil。"
-  [_layers path]
-  (let [idx      (last path)
-        prev-idx (dec idx)]
-    (when (not (neg? prev-idx))
-      (conj (parent path) prev-idx))))
+  [layers path]
+  (tp/below-sibling-path layers path layers-children))
 
 (defn below-sibling-paths
-  "同一父容器中，当前路径下方（索引更小）的所有兄弟路径。
-   按从底到上的顺序返回（索引升序）。
-   空路径或当前已是第一个时返回 []。
-
-   用于分段——取 [0, current) 中的下方部分。"
+  "同一父容器中，当前路径下方（索引更小）的所有兄弟路径。索引升序。"
   [layers path]
-  (if (empty? path)
-    []
-    (let [siblings (get-siblings layers path)
-          n        (count siblings)
-          idx      (min (last path) n)
-          parent-p (parent path)]
-      (mapv #(conj parent-p %) (range idx)))))
+  (tp/below-sibling-paths layers path layers-children))
 
-(defn sibling-range-paths
+(defn ^:deprecated sibling-range-paths
   "同一父下，从 from-idx 到 to-idx（不含）的所有路径。"
   [parent-path from-idx to-idx]
-  (mapv #(conj parent-path %) (range from-idx to-idx)))
+  (tp/sibling-range-paths parent-path from-idx to-idx))
 
-(defn paths-between
-  "同一父下，从 a 到 b（不含 b）的所有路径。
-   a、b 必须同父。"
+(defn ^:deprecated paths-between
+  "同一父下，从 a 到 b（不含 b）的所有路径。a、b 必须同父。"
   [a b]
-  (let [pa (parent a)
-        pb (parent b)]
-    (when (= pa pb)
-      (sibling-range-paths pa (last a) (last b)))))
+  (tp/paths-between a b))
 
-(defn next-path
-  "按 DFS 前序遍历，下一个路径。
-   优先进入子节点——若无子则找下一个兄弟——若无兄弟则回溯到祖先的兄弟。
-   遍历结束返回 nil。"
+(defn ^:deprecated next-path
+  "按 DFS 前序遍历，下一个路径。"
   [layers path]
-  (or (first-child-path layers path)
-      (loop [p path]
-        (when (seq p)
-          (or (above-sibling-path layers p)
-              (recur (parent p)))))))
+  (tp/next-path layers path layers-children))
 
 (defn prev-path
-  "按 DFS 前序遍历，前一个路径。
-   若有兄弟——取兄弟的最深最后一个后代。"
+  "按 DFS 前序遍历，前一个路径。"
   [layers path]
-  (when-let [prev-sibling (below-sibling-path layers path)]
-    (loop [p prev-sibling]
-      (if-let [last-child (last-child-path layers p)]
-        (recur last-child)
-        p))))
+  (tp/prev-path layers path layers-children))
 
-
+;; ═══════════════════════════════════════════════
+;; 图层树修改（包装 tree-path 通用函数）
+;; ═══════════════════════════════════════════════
 
 (defn insert-layer
   "在图层列表 layers 的指定路径处插入 layer。返回新的图层向量。
    path 为索引向量，如 [2] 表示根索引 2，[2 0] 表示组内索引。
    空路径表示插入到末尾。"
   [layers path layer]
-  (if (seq path)
-    (let [idx (last path)
-          parent-path (butlast path)]
-      (if (seq parent-path)
-        ;; 有父路径：找到父组，递归更新其内部
-        (let [parent-idx (first parent-path)
-              parent (nth layers parent-idx)
-              new-parent (update parent :layers
-                                 insert-layer (rest path) layer)]
-          (assoc layers parent-idx new-parent))
-        ;; 直接根级插入
-        (vec (concat (subvec layers 0 idx) [layer] (subvec layers idx)))))
-    ;; 空路径：插入到末尾
-    (conj (vec layers) layer)))
-
+  (tp/insert-node layers path layer layers-children assoc-layers))
 
 (defn remove-layer
   "从图层列表 layers 的指定路径移除图层。返回 [new-layers removed-layer]。
    path 为索引向量。"
   [layers path]
-  (when (seq path)
-    (let [idx (last path)
-          parent-path (butlast path)]
-      (if (seq parent-path)
-        ;; 嵌套：找到父组，递归删除
-        (let [parent-idx (first parent-path)
-              parent (nth layers parent-idx)
-              [new-children removed] (remove-layer (rest path) (:layers parent))
-              new-parent (assoc parent :layers new-children)
-              new-layers (assoc layers parent-idx new-parent)]
-          [new-layers removed])
-        ;; 根级删除
-        (let [removed (nth layers idx)
-              new-layers (vec (concat (subvec layers 0 idx) (subvec layers (inc idx))))]
-          [new-layers removed])))))
-
-
+  (tp/remove-node layers path layers-children assoc-layers))
 
 (defn move-layer
   "将图层从 old-path 移动到 new-path，返回新的图层列表。
    old-path 和 new-path 均为索引向量。"
   [layers old-path new-path]
-  (when (and (seq old-path) (seq new-path))
-    (let [[temp-layers removed] (remove-layer old-path layers)
-          same-parent? (= (butlast old-path) (butlast new-path))
-          old-idx (last old-path)
-          new-idx (last new-path)
-          adjusted-new-path (if (and same-parent? (< old-idx new-idx))
-                              (conj (butlast new-path) (dec new-idx))
-                              new-path)]
-      (insert-layer adjusted-new-path removed temp-layers))))
-
+  (tp/move-node layers old-path new-path layers-children assoc-layers))
 
 (defn update-layer
   "对指定路径处的图层应用更新函数 f，返回新的图层列表。
    f 接收当前图层，返回更新后的图层。
    路径无效时返回原 layers。"
   [layers path f]
-  (when (seq path)
-    (let [idx (last path)
-          parent-path (butlast path)]
-      (if (seq parent-path)
-        ;; 有父路径：找到父组，递归更新其内部
-        (let [parent-idx (first parent-path)
-              parent (nth layers parent-idx)
-              new-parent (assoc parent :layers (update-layer (:layers parent) (rest path) f))]
-          (assoc layers parent-idx new-parent))
-        ;; 根级更新
-        (assoc layers idx (f (nth layers idx)))))))
+  (tp/update-node layers path f layers-children assoc-layers))
 
-(defn sort-paths
-  "对 paths 按 DFS 前序排序。返回排序后的 paths。"
-  [paths]
-  (vec (sort path< paths)))
+;; ═══════════════════════════════════════════════
+;; 排序（委托 tree-path）
+;; ═══════════════════════════════════════════════
 
+(def ^:deprecated sort-paths tp/sort-paths)
 
-(defn sort-by-path
+(defn ^:deprecated sort-by-path
   "paths 和 attachments 是一一对应的扁平序列。
    按 paths 的 DFS 前序排序，attachments 跟随移动。
    返回 [sorted-paths sorted-attachments]。"
   [paths attachments]
-  (let [pairs   (map vector paths attachments)
-        sorted  (sort-by first path< pairs)]
-    [(mapv first sorted) (mapv second sorted)]))
+  (tp/sort-by-path paths attachments))
